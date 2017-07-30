@@ -1,0 +1,98 @@
+<html>
+  <head>
+    <title>network</title>
+    <style>
+      html, body, canvas { height: 100%; width: 100% }
+      body { background: #000; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"/>
+  </body>
+  <script>
+var canvas = document.getElementById('c')
+var cw = canvas.width = canvas.offsetWidth * (window.devicePixelRatio||1)
+var ch = canvas.height = canvas.offsetHeight * (window.devicePixelRatio||1)
+var ctx = canvas.getContext('2d')
+ctx.translate(cw/2,ch/2)
+
+var RADIUS = 500
+var POINT_COUNT = 100
+var LINE_COUNT =2000
+var iV = .3
+
+
+var points = []
+for (var i=0; i<POINT_COUNT; i++)
+  points.push(choosePoint(RADIUS))
+
+var lines = []
+var lineReferences = {}
+for (var i=0; i<LINE_COUNT; i++) {
+  var key = null, inverseKey = null
+  var line, index1, index2
+  while (!key || key in lineReferences) {
+    index1 = choose(POINT_COUNT)
+    index2 = choose(POINT_COUNT)
+    if (index1 != index2) {
+      key = index1 + '-' + index2
+      inverseKey = index2 + '-' + index1
+    } else {
+      key = null
+    }
+  }
+  lines.push([points[index1], points[index2]])
+  lineReferences[key] = 1
+  lineReferences[inverseKey] =1
+}
+
+ctx.lineWidth = .5
+ctx.fillStyle = '#000'
+
+function render() {
+  ctx.clearRect(-cw/2,-ch/2,cw,ch)
+
+  lines.forEach(function(line) {
+    var b = brightness(line)
+    if (b < .01) return;
+    ctx.strokeStyle = 'rgba(255,255,255,'+b+')'
+    ctx.beginPath()
+    ctx.moveTo(line[0][0], line[0][1])
+    ctx.lineTo(line[1][0], line[1][1])
+    ctx.stroke()
+  })
+
+  points.forEach(function(p) {
+    p[0] += p[2]
+    p[1] += p[3]
+    var lp = length(p)
+    if (lp > RADIUS) {
+      p[2] -= .01 * p[0] / lp
+      p[3] -= .01 * p[1] / lp
+    }
+    ctx.fillRect(p[0]-2, p[1]-2, 4, 4)
+  })
+
+  requestAnimationFrame(render)
+}
+render()
+
+function brightness(line) {
+  return Math.exp(-Math.pow(.005*distance(line[0],line[1]), 2))
+}
+function distance(p1, p2) { var x=p1[0]-p2[0], y=p1[1]-p2[1]; return Math.sqrt(x*x+y*y) }
+function length(p) { var x=p[0], y=p[1]; return Math.sqrt(x*x+y*y) }
+
+function choosePoint(radius) {
+  return circPoint(radius, 5).concat(circPoint(iV, .5))
+}
+function circPoint(radius, edginess) {
+  var r = radius * (1-Math.pow(Math.random(),edginess))
+  var theta = 2*Math.PI*Math.random()
+  return [r*Math.sin(theta), r*Math.cos(theta)]
+}
+function lerp(a,b,x) { return a + x*(b-a) }
+function choose(count) { return Math.floor(Math.random() * count) }
+
+  </script>
+ </html>

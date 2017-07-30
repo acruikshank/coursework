@@ -1,0 +1,67 @@
+<html>
+  <head>
+    <title>network</title>
+    <style>
+      html, body, canvas { height: 100%; width: 100% }
+      body { background: #000; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"/>
+  </body>
+  <script>
+var canvas = document.getElementById('c')
+var cw = canvas.width = canvas.offsetWidth * (window.devicePixelRatio||1)
+var ch = canvas.height = canvas.offsetHeight * (window.devicePixelRatio||1)
+var ctx = canvas.getContext('2d')
+
+var GRID_WIDTH = 100
+var OFF_X = 10
+var OFF_Y = 20
+
+ctx.fillStyle = ctx.strokeStyle = '#fff'
+ctx.lineWidth = 1
+
+function render() {
+  ctx.clearRect(0,0,cw,ch)
+  for (var i=0; i<cw; i+=GRID_WIDTH) {
+    for (var j=0; j<ch; j+=GRID_WIDTH) {
+      ctx.beginPath()
+      ctx.moveTo(i,j)
+      rdraw(i+GRID_WIDTH,j)
+      rdraw(i+GRID_WIDTH+OFF_X,j+OFF_Y)
+      rdraw(i+OFF_X,j+OFF_Y)
+      rdraw(i+GRID_WIDTH,j)
+      rdraw(i+GRID_WIDTH,j+GRID_WIDTH)
+
+      ctx.closePath()
+      ctx.stroke()
+    }
+  }
+  setTimeout(render, 200)
+}
+render()
+
+function rdraw(x,y) {
+  if (Math.random() < .9)
+    ctx.lineTo(x,y)
+  else
+    ctx.moveTo(x,y)
+}
+
+function distance(p1, p2) { var x=p1[0]-p2[0], y=p1[1]-p2[1]; return Math.sqrt(x*x+y*y) }
+function length(p) { var x=p[0], y=p[1]; return Math.sqrt(x*x+y*y) }
+
+function choosePoint(radius) {
+  return circPoint(radius, 5).concat(circPoint(iV, .5))
+}
+function circPoint(radius, edginess) {
+  var r = radius * (1-Math.pow(Math.random(),edginess))
+  var theta = 2*Math.PI*Math.random()
+  return [r*Math.sin(theta), r*Math.cos(theta)]
+}
+function lerp(a,b,x) { return a + x*(b-a) }
+function choose(count) { return Math.floor(Math.random() * count) }
+
+  </script>
+ </html>

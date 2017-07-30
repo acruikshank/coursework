@@ -1,0 +1,33 @@
+<html>
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.4.7/p5.min.js"></script>
+  <script>
+
+  function setup() {
+    var body = document.body;
+    createCanvas(500, body.offsetHeight);
+    colorMode(HSB, 100);
+    noStroke();
+  }
+
+  function draw() {
+    var c = color(40,100,100)
+    noStroke();
+    fill(c);
+    ellipse(100, 200, 100, 100);
+    ellipse(400, 200, 100, 100);
+    stroke(c);
+    noFill();
+    strokeWeight(5);
+    ellipse(250, 402, 300, 300);
+    noStroke()
+    fill(0,0,100)
+    rect(90,249,400,150)
+  }
+
+  </script>
+  <style> body {padding: 0; margin: 0;} canvas {margin: 0 auto; display:block;}</style>
+</head>
+<body>
+</body>
+</html>

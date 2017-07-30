@@ -1,0 +1,418 @@
+<html>
+  <head>
+    <title>WebGL Demo</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <style type="text/css">
+      html, body, canvas { margin:0; width: 100%; height:100%; overflow: hidden;}
+      xcanvas {width: 49%; vertical-align: top;}
+      video {position: absolute;}
+    </style>
+    <script src="sylvester.js" type="text/javascript"></script>
+    <script src="glUtils.js" type="text/javascript"></script>
+
+    <!-- Fragment shader program -->
+
+    <script id="shader-fs" type="x-shader/x-fragment">
+
+        precision mediump float;
+        varying float offset;
+
+        void main(void) {
+          float brightness = .5* pow(offset, 24.0);
+          gl_FragColor = vec4(vec3(brightness), 1.0);
+        }
+    </script>
+
+    <!-- Vertex shader program -->
+
+      <script id="shader-vs" type="x-shader/x-vertex">
+      precision mediump float;
+
+      attribute vec3 aVertexPosition;
+
+      uniform mat4 uMVMatrix;
+      uniform mat4 uPMatrix;
+      uniform float uTheta;
+
+      varying float offset;
+
+      #define N %N%.0
+      #define D %D%.0
+
+      vec3 mod289(vec3 x) {
+        return x - floor(x * (1.0 / 289.0)) * 289.0;
+      }
+
+      vec4 mod289(vec4 x) {
+        return x - floor(x * (1.0 / 289.0)) * 289.0;
+      }
+
+      vec4 permute(vec4 x) {
+           return mod289(((x*34.0)+1.0)*x);
+      }
+
+      vec4 taylorInvSqrt(vec4 r)
+      {
+        return 1.79284291400159 - 0.85373472095314 * r;
+      }
+
+      float snoise(vec3 v) {
+        const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
+        const vec4  E = vec4(0.0, 0.5, 1.0, 2.0);
+
+        // First corner
+        vec3 i  = floor(v + dot(v, C.yyy) );
+        vec3 x0 =   v - i + dot(i, C.xxx) ;
+
+        // Other corners
+        vec3 g = step(x0.yzx, x0.xyz);
+        vec3 l = 1.0 - g;
+        vec3 i1 = min( g.xyz, l.zxy );
+        vec3 i2 = max( g.xyz, l.zxy );
+
+        //   x0 = x0 - 0.0 + 0.0 * C.xxx;
+        //   x1 = x0 - i1  + 1.0 * C.xxx;
+        //   x2 = x0 - i2  + 2.0 * C.xxx;
+        //   x3 = x0 - 1.0 + 3.0 * C.xxx;
+        vec3 x1 = x0 - i1 + C.xxx;
+        vec3 x2 = x0 - i2 + C.yyy; // 2.0*C.x = 1/3 = C.y
+        vec3 x3 = x0 - E.yyy;      // -1.0+3.0*C.x = -0.5 = -D.y
+
+        // Permutations
+        i = mod289(i);
+        vec4 p = permute( permute( permute(
+                   i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+                 + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+                 + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+        // Gradients: 7x7 points over a square, mapped onto an octahedron.
+        // The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+        float n_ = 0.142857142857; // 1.0/7.0
+        vec3  ns = n_ * E.wyz - E.xzx;
+
+        vec4 j = p - 49.0 * floor(p * ns.z * ns.z);  //  mod(p,7*7)
+
+        vec4 x_ = floor(j * ns.z);
+        vec4 y_ = floor(j - 7.0 * x_ );    // mod(j,N)
+
+        vec4 x = x_ *ns.x + ns.yyyy;
+        vec4 y = y_ *ns.x + ns.yyyy;
+        vec4 h = 1.0 - abs(x) - abs(y);
+
+        vec4 b0 = vec4( x.xy, y.xy );
+        vec4 b1 = vec4( x.zw, y.zw );
+
+        //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
+        //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
+        vec4 s0 = floor(b0)*2.0 + 1.0;
+        vec4 s1 = floor(b1)*2.0 + 1.0;
+        vec4 sh = -step(h, vec4(0.0));
+
+        vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+        vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+        vec3 p0 = vec3(a0.xy,h.x);
+        vec3 p1 = vec3(a0.zw,h.y);
+        vec3 p2 = vec3(a1.xy,h.z);
+        vec3 p3 = vec3(a1.zw,h.w);
+
+        //Normalise gradients
+        vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+        p0 *= norm.x;
+        p1 *= norm.y;
+        p2 *= norm.z;
+        p3 *= norm.w;
+
+        // Mix final noise value
+        vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+        m = m * m;
+        return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
+                                      dot(p2,x2), dot(p3,x3) ) );
+      }
+
+      void main(void) {
+        // float l = length(aVertexPosition);
+        vec2 offsetPosition = aVertexPosition.xy;
+        vec2 p = -vec2(D)*((offsetPosition)/N-0.5);
+        float len = length(p);
+        // vec3 position = vec3(normalize(p) * len * (1.0 + 0.5 * pow(sin(-0.2*uTheta + 1.0*len), 4.0)), -3.0);
+        vec3 position = vec3(normalize(p) * len * (1.0 - 0.6 * pow(snoise(vec3(.5*p + vec2(0,4.0+.005*uTheta),0.000*uTheta)), 1.0)), -2.0);
+        // position = vec3(aVertexPosition, -3.0);
+        gl_Position =  uPMatrix * /* uMVMatrix * */ vec4(position, 1.0);
+        offset = aVertexPosition.z;
+        // gl_PointSize = 2.0;
+      }
+    </script>
+  </head>
+
+  <body>
+    <canvas id="glcanvas">
+      Your browser doesn't appear to support the HTML5 <code>&lt;canvas&gt;</code> element.
+    </canvas>
+    <video id="v" autoplay width="256" height="256"></video>
+  </body>
+  <script>
+/*
+Idea:
+Hex points are attracted to or repelled from their centers by some dynamic function
+A Continuous function woud create regions where cells are small and regions where they are big
+Implement as a force/velocity/position simulation
+Forces acting on hex points would be actraction of 3 neighboring centers + an attraction to its origin
+Forces on center would be an attraction to its edge points + an attraction to its origin
+Each vertex is given a position, a flag indicating whether it is an edge or a center and the indices
+  of 3 points of possible attraction
+Origin, center flag, and reference indices are given as attributes
+Current xy and current vx,vy are a 2 page rebuffer of vec4s
+ */
+var canvas;
+var gl;
+var squareVerticesBuffer;
+var mvMatrix;
+var shaderProgram;
+var vertexPositionAttribute;
+var perspectiveMatrix;
+var N = 256;
+var D = 8;
+var xOffset = 0;
+var yOffset = 0;
+
+var path = [[0,.5]];
+var pathTime = 100;
+var pathInterval = 0;
+var moveProb = .8;
+var moveDist = .2;
+var segmentProb = .6;
+var minPathTime = 50;
+var maxPathTime = 150;
+var vertices = [];
+
+// navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia
+//                         || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+// navigator.getUserMedia({audio:false,video:true}, function(stream) {
+//     var video=document.getElementById("v");
+//     video.src=URL.createObjectURL(stream);
+//     video.addEventListener('canplay', start);
+//   }, function(err) { console.log(err); });
+start()
+
+//
+// start
+//
+// Called when the canvas is created to get the ball rolling.
+// Figuratively, that is. There's nothing moving in this demo.
+//
+function start() {
+  canvas = document.getElementById("glcanvas");
+  canvas.width = canvas.offsetWidth * 2;
+  canvas.height = canvas.offsetHeight * 2;
+
+  canvas.addEventListener('mousemove', function(e) {
+    xOffset = 2 * (e.clientX / canvas.width - .5);
+    yOffset = 2 * (e.clientY / canvas.height - .5);
+  })
+
+  initWebGL(canvas);      // Initialize the GL context
+
+  // Only continue if WebGL is available and working
+
+  if (gl) {
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
+    gl.clearDepth(1.0);                 // Clear everything
+    gl.enable(gl.DEPTH_TEST);           // Enable depth testing
+    gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
+
+    initShaders();
+    initBuffers();
+    drawScene();
+  }
+}
+
+//
+// initWebGL
+//
+// Initialize WebGL, returning the GL context or null if
+// WebGL isn't available or could not be initialized.
+//
+function initWebGL() {
+  gl = canvas.getContext("experimental-webgl");
+}
+
+function initBuffers() {
+  for (var j=0; j<N; j++) {
+    for (var i=0; i<N; i++) {
+      if (j&1) {
+        pushHexVert(vertices,i,j+1)
+        pushHexVert(vertices,i,j)
+        pushHexVert(vertices,i+1,j+1)
+
+        pushHexVert(vertices,i+1,j+1)
+        pushHexVert(vertices,i+1,j)
+        pushHexVert(vertices,i,j)
+      } else {
+        pushHexVert(vertices,i,j)
+        pushHexVert(vertices,i,j+1)
+        pushHexVert(vertices,i+1,j)
+
+        pushHexVert(vertices,i+1,j)
+        pushHexVert(vertices,i+1,j+1)
+        pushHexVert(vertices,i,j+1)
+      }
+    }
+  }
+
+  squareVerticesBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+}
+
+function pushHexVert(vertices,i,j) {
+  vertices.push(i + ((j&1)?.5:0), j, ((i + ((j&1)?2:0)) % 3) ? 1 : 0)
+}
+
+//
+// drawScene
+//
+// Draw the scene.
+//
+function drawScene() {
+  // Clear the canvas before we start drawing on it.
+
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  // Establish the perspective with which we want to view the
+  // scene. Our field of view is 45 degrees, with a width/height
+  // ratio of 640:480, and we only want to see objects between 0.1 units
+  // and 100 units away from the camera.
+
+  perspectiveMatrix = makePerspective(45, canvas.width/canvas.height, 0.1, 100.0);
+
+  // Set the drawing position to the "identity" point, which is
+  // the center of the scene.
+
+  mvMatrix = Matrix.I(4);
+
+  // Now move the drawing position a bit to where we want to start
+  // drawing the square.
+  var camera = [0, 16*(1-.5), -4];
+
+  mvMatrix = mvMatrix
+    .x(makeLookAt(camera[0], camera[1], camera[2], 0, 0, 0, 0, 1.0, 0))
+
+  // Draw the square by binding the array buffer to the square's vertices
+  // array, setting attributes, and pushing it to GL.
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesBuffer);
+  gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+  setMatrixUniforms();
+  gl.drawArrays(gl.TRIANGLES, 0, vertices.length/3) //2*N*N);
+
+  requestAnimationFrame(drawScene);
+
+}
+
+//
+// initShaders
+//
+// Initialize the shaders, so WebGL knows how to light our scene.
+//
+function initShaders() {
+  var fragmentShader = getShader(gl, "shader-fs");
+  var vertexShader = getShader(gl, "shader-vs");
+
+  // Create the shader program
+
+  shaderProgram = gl.createProgram();
+  gl.attachShader(shaderProgram, vertexShader);
+  gl.attachShader(shaderProgram, fragmentShader);
+  gl.linkProgram(shaderProgram);
+
+  // If creating the shader program failed, alert
+
+  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+    alert("Unable to initialize the shader program.");
+  }
+
+  gl.useProgram(shaderProgram);
+
+  vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+  gl.enableVertexAttribArray(vertexPositionAttribute);
+}
+
+//
+// getShader
+//
+// Loads a shader program by scouring the current document,
+// looking for a script with the specified ID.
+//
+function getShader(gl, id) {
+  var shaderScript = document.getElementById(id);
+
+  // Didn't find an element with the specified ID; abort.
+
+  if (!shaderScript) {
+    return null;
+  }
+
+  // Walk through the source element's children, building the
+  // shader source string.
+
+  var theSource = "";
+  var currentChild = shaderScript.firstChild;
+
+  while(currentChild) {
+    if (currentChild.nodeType == 3) {
+      theSource += currentChild.textContent;
+    }
+
+    currentChild = currentChild.nextSibling;
+  }
+
+  // Now figure out what type of shader script we have,
+  // based on its MIME type.
+
+  var shader;
+
+  if (shaderScript.type == "x-shader/x-fragment") {
+    shader = gl.createShader(gl.FRAGMENT_SHADER);
+  } else if (shaderScript.type == "x-shader/x-vertex") {
+    shader = gl.createShader(gl.VERTEX_SHADER);
+  } else {
+    return null;  // Unknown shader type
+  }
+
+  // Send the source to the shader object
+
+  gl.shaderSource(shader, theSource.replace('%N%',N).replace('%D%',D));
+
+  // Compile the shader program
+
+  gl.compileShader(shader);
+
+  // See if it compiled successfully
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    alert("An error occurred compiling the shaders: " + gl.getShaderInfoLog(shader));
+    return null;
+  }
+
+  return shader;
+}
+
+//
+// Matrix utility functions
+//
+
+var theta = 0;
+function setMatrixUniforms() {
+  var pUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+  gl.uniformMatrix4fv(pUniform, false, new Float32Array(perspectiveMatrix.flatten()));
+
+  var mvUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+  gl.uniformMatrix4fv(mvUniform, false, new Float32Array(mvMatrix.flatten()));
+
+  var thetaUniform = gl.getUniformLocation(shaderProgram, "uTheta");
+  gl.uniform1f(thetaUniform, theta);
+  theta += .1;
+}
+  </script>
+</html>
