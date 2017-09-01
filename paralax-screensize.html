@@ -76,7 +76,7 @@
       void main(void) {
         float nOffset = 0.01*time + scrollOffset;
         vec2 screenPosition = vec2(vertexPosition.x * separation - 1.1,
-                                   vertexPosition.y * separation - .55 * resolution);
+                                   vertexPosition.y * separation - height*1.2/width);
         vec2 pos = vec2(screenPosition.x, screenPosition.y + mod(nOffset,separation));
         vec3 nPos = vec3(screenPosition.x, screenPosition.y - separation*floor(nOffset/separation),.005*time);
         float mouseDistance = distance(pos, mouse.xy);
@@ -200,7 +200,7 @@ var coordAttribute;
 var onscreenShader;
 var theta = Math.random() * 1000000;
 var dTheta = 0.02;
-var PIXELS_PER_SQUARE = 11.25
+var PIXELS_PER_SQUARE = 81.25
 var SEPARATION
 // var SEPARATION = 2/(.75*(PIXELS+1));
 var BLEED = 1.2
@@ -223,8 +223,6 @@ function start() {
   gl = canvas.getContext("experimental-webgl");
 
   if (gl) {
-    gl.getExtension('OES_texture_float');
-
     onscreenShader = SketchbookUtil.createProgram(gl, 'grid', 'dot', ['noise'], []);
 
     coordAttribute = gl.getAttribLocation(onscreenShader, "vertexPosition");
@@ -237,7 +235,7 @@ function start() {
 function createGeometry() {
   canvas.width = canvas.offsetWidth * pixelRatio;
   canvas.height = canvas.offsetHeight * pixelRatio;
-  SEPARATION = .015 * 1440 * pixelRatio / canvas.width
+  SEPARATION = .15 * 1440 * pixelRatio / canvas.width
   if (gl) {
     VERTICAL_SQUARES = Math.floor((canvas.height*BLEED) / PIXELS_PER_SQUARE)
     HORIZONTAL_SQUARES = Math.floor((canvas.width*BLEED) / PIXELS_PER_SQUARE)
