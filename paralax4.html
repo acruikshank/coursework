@@ -80,27 +80,7 @@
   }
   </style>
 </head>
-<body>
-    <div class="parallax">
-      <div class="parallax__layer parallax__layer--back">
-        <img src="miami.jpg"/>
-        <img src="miami.jpg"/>
-        <img src="miami.jpg"/>
-        <img src="miami.jpg"/>
-        <img src="miami.jpg"/>
-        <img src="miami.jpg"/>
-      </div>
-      <div class="parallax__layer parallax__layer--base">
-        <div class="parallax__inner" id="build-like-nature">
-          <h1>testing</h1>
-        </div>
-      </div>
-      <div class="parallax__layer parallax__layer--base2">
-        <div class="parallax__inner" id="c-fab-1">
-          <h1>testing</h1>
-        </div>
-      </div>
-    </div>
+<body id="c-fab">
 
 
 <script>
@@ -346,11 +326,11 @@ function Background(offsetParent, style, config) {
   })
 
   var resizeInterval = setInterval(function() {
-    if (canvas && (canvas.offsetWidth != lastSize.width || canvas.offsetHeight != lastSize.height)) {
+    // if (canvas && (canvas.offsetWidth != lastSize.width || canvas.offsetHeight != lastSize.height)) {
       resized = true;
       lastSize.width = canvas.offsetWidth
       lastSize.height = canvas.offsetHeight
-    }
+    // }
   }, 200);
 
   return { destroy: function() { active = false; clearInterval(resizeInterval); } }

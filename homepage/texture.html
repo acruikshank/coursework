@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    body {
+      background: #000;
+    }
+    canvas {
+      width: 1612px;
+      height: 502px;
+      margin: 14% auto;
+      display: block;
+    }
+  </style>
+  <script src="perlin.js"></script>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <!-- <a id="download">download</a> -->
+</body>
+<script>
+
+function vadd(a,v) { return [a[0]+v[0], a[1]+v[1], a[2]+v[2]]; }
+function vsub(a,v) { return [a[0]-v[0], a[1]-v[1], a[2]-v[2]]; }
+function vscale(a,c) { return [a[0]*c, a[1]*c, a[2]*c]; }
+function vdot(a,v) { return a[0]*v[0] + a[1]*v[1] + a[2]*v[2]; }
+function vcross(a,v) { return [a[1]*v[2] - a[2]*v[1], a[2]*v[0] - a[0]*v[2], a[0]*v[1] - a[1]*v[0]]; }
+function vlength(v) { return Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]); }
+function vdist(a, v) { return vlength(vsub(a,v)); }
+function vnorm(v) { var l=vlength(v); return l > 0 ? [v[0]/l, v[1]/l, v[2]/l] : v; }
+function vinterp(a,b,c) { return vadd(a,vscale(vsub(b,a),c)); }
+
+const canvas = document.getElementById("c")
+const cw = canvas.width = canvas.offsetWidth
+const ch = canvas.height = canvas.offsetHeight
+const ctx = canvas.getContext('2d')
+
+/**
+ * bevel is defined by shelf (s) and radius (r)
+ * shelf defines how much of the top and bottom are flat
+ * radius determines how smoothly it transitions from flat to the wall
+ * r <= s
+ * It all can be though of as 3 lines, 2 flats and the wall, and 2 circles for the transitions.
+ * The wall is the line between (s,0) and (1-2,1).
+ * The circles should be of radius r, tangent to both lines.
+ * So c0.y = r and c1.y = 1-r
+ * The circle's center is the intersection of y=r and the bisector y=0 and the wall.
+ * The angle between the flat and wall is PI-atan2(1/(1-2s)), so bisector angle is half that.
+ * Let offset = r/tan(bisector) [the distance between the flat/wall intersection and the circle center along one side]
+ * So x1 = c.x = s - offset, and x2 = s + offset * cos(1/(1-2s))
+ * From 0-x1: 0
+ * From x1-x2: c.y - Math.sqrt(r*r - x*x)
+ * From x2-x3: (x-s)/(1-2s)
+ * From x3-x4: 1 - c.y + Math.sqrt(r*r - x*x)
+ * From x4-x5: 1
+ */
+
+const fillet = (offset, r) => {
+  const d = 1 - 2*offset, theta = Math.atan2(1,d)
+  const bisect = (Math.PI-theta)/2, proj = r / Math.tan(bisect)
+  const x1 = offset - proj, x2 = offset + proj * Math.cos(theta), x3=1-x2, x4=1-x1
+  return x => {
+    if (x < x1) return 0
+    if (x < x2) return r - Math.sqrt(r*r - (x1-x)*(x1-x))
+    if (x < x3) return (x - offset) / d
+    if (x < x4) return 1 - r + Math.sqrt(r*r - (x4-x)*(x4-x))
+    return 1
+  }
+}
+
+const fil = fillet(.18, .1)
+const offsetx = 32.5, offsety = 44.5, nfreq = .3, nscale = 80
+const relief = (x, y) => {
+  // const x_1 = .3*x - 40
+  // const y_1 = .9*y - 50
+  const x_1 = 80*x - 80
+  const y_1 = 200*y - 25
+  const x_2 = x_1 + nscale*noise.perlin2(offsetx+nfreq*x, offsety+nfreq*y)
+  const y_2 = y_1 + nscale*noise.perlin2(offsety+nfreq*x, offsety+nfreq*y)
+
+  const r = Math.sqrt(x_2*x_2 + y_2*y_2)
+  const t = Math.atan2(y_2,x_2) + Math.PI
+
+  const r_ = Math.PI/2
+  const t_ = 2*((t+Math.PI/4)%(Math.PI/2) - Math.PI/4)
+  const h = Math.max(0, r*Math.sqrt(r_*r_ - t_*t_) - 20)
+  const cycle = 40
+  const h_div = Math.floor(h / cycle)
+  const h_mod = Math.floor(h % cycle)
+  const h_ = (h_div % 2 ? h_mod : cycle-h_mod) / cycle
+  return fil(Math.max(1-Math.cos(t_), h_))
+}
+
+
+const canvasData = ctx.getImageData(0, 0, cw, ch)
+
+for (let i=0; i<canvasData.width; i++) {
+  for (let j=0; j<canvasData.height; j++) {
+    let idx = (i + j*canvasData.width)*4
+
+    let x = 6*(i - .5*cw)/1612, y = 2*(j-.5*ch)/502
+
+    // const offsetx = 31.5, offsety = 44.5, nfreq = .0006, nscale = 250
+    // let x_1 = .3*x - 40
+    // let y_1 = .9*y - 50
+    // let x_2 = x_1 + nscale*noise.perlin2(offsetx+nfreq*x, offsety+nfreq*y)
+    // let y_2 = y_1 + nscale*noise.perlin2(offsety+nfreq*x, offsety+nfreq*y)
+
+    // let r = Math.sqrt(x_2*x_2 + y_2*y_2)
+    // let t = Math.atan2(y_2,x_2) + Math.PI
+
+    // let r_ = Math.PI/2
+    // let t_ = 2*((t+Math.PI/4)%(Math.PI/2) - Math.PI/4)
+    // let h = Math.max(0, r*Math.sqrt(r_*r_ - t_*t_) - 20)
+    // let cycle = 40
+    // let h_div = Math.floor(h / cycle)
+    // let h_mod = Math.floor(h % cycle)
+    // h = (h_div % 2 ? h_mod : cycle-h_mod) / cycle
+    // let m = fil(Math.max(1-Math.cos(t_), h))
+    const m = relief(x, y)
+
+    let p = parseInt(Math.max(0, Math.min(255, 256*m)))
+
+    canvasData.data[idx] = p
+    canvasData.data[idx+1] = p
+    canvasData.data[idx+2] = p
+    canvasData.data[idx+3] = 255
+  }
+}
+ctx.putImageData(canvasData, 0, 0)
+
+// height2normal(canvas)
+
+// const download = document.getElementById("download")
+// download.setAttribute('href', canvas.toDataURL())
+</script>
+</html>
